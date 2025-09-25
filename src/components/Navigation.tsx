@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 
 const navigationItems = [
+  { name: "Chat", href: "/chat", icon: User },
   { name: "Dashboard", href: "/dashboard", icon: BarChart3 },
   { name: "Scanner", href: "/scanner", icon: ScanLine },
   { name: "Complaints", href: "/complaints", icon: FileText },
