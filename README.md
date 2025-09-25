@@ -52,6 +52,8 @@ npm run dev
 
 ## What technologies are used for this project?
 
+
+
 This project is built with:
 
 - Vite
@@ -59,6 +61,24 @@ This project is built with:
 - React
 - shadcn-ui
 - Tailwind CSS
+
+## Backend API integration
+
+Configure environment variables by copying .env.example to .env.local and updating values:
+
+```
+cp .env.example .env.local
+# then set VITE_API_BASE_URL and VITE_API_TOKEN
+```
+
+The API client lives in `src/lib/api.ts` and expects the following endpoints:
+- POST /v1/scan/ocr (multipart image_file)
+- POST /v1/scan/barcode (JSON)
+- POST /v1/validate/legal-metrology (JSON)
+- POST /v1/cv/similarity (multipart ref_image + user_image)
+- GET /v1/scan/{scan_id}/result
+
+Types for requests/responses are in `src/types/api.ts`.
 
 ## How can I deploy this project?
 
