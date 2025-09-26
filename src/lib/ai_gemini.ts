@@ -8,7 +8,18 @@ export type ChatMessage = {
 
 const HARDCODED_GEMINI_KEY = "AIzaSyDfzFKOYj-GT8jRhbA5E6jMS_KvSbsRW3A"; // per user request (not secure for prod)
 const GEMINI_API_KEY: string | undefined = (import.meta as any).env.VITE_GEMINI_API_KEY || HARDCODED_GEMINI_KEY;
-const GEMINI_MODEL = (import.meta as any).env.VITE_GEMINI_MODEL || "gemini-1.5-flash-latest";
+const DEFAULT_GEMINI_MODEL = "gemini-1.5-flash-latest"; // valid for Google AI Studio (Generative Language API)
+
+function normalizeModelName(input?: string): string {
+  const m = (input || "").trim();
+  if (!m) return DEFAULT_GEMINI_MODEL;
+  // If the provided model looks like a Vertex AI publisher model or a versioned suffix (e.g., -001/-002),
+  // fall back to a public Generative Language API model name.
+  if (/^projects\//.test(m) || /-00\d$/.test(m)) return DEFAULT_GEMINI_MODEL;
+  return m;
+}
+
+const GEMINI_MODEL = normalizeModelName((import.meta as any).env.VITE_GEMINI_MODEL) || DEFAULT_GEMINI_MODEL;
 
 export async function generateWithGemini(messages: ChatMessage[], systemInstruction?: string): Promise<string> {
   if (!GEMINI_API_KEY) throw new Error("Gemini API key missing");

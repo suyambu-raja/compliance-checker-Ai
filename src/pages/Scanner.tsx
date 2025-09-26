@@ -1,7 +1,8 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -42,6 +43,14 @@ export default function Scanner() {
   const [userImage, setUserImage] = useState<File | null>(null);
   const [cvResult, setCvResult] = useState<CVSimilarityResponse | null>(null);
   const [cvLoading, setCvLoading] = useState(false);
+
+  // Image previews
+  const [ocrImagePreview, setOcrImagePreview] = useState<string | null>(null);
+  useEffect(() => () => { if (ocrImagePreview) URL.revokeObjectURL(ocrImagePreview); }, [ocrImagePreview]);
+  const [refPreview, setRefPreview] = useState<string | null>(null);
+  useEffect(() => () => { if (refPreview) URL.revokeObjectURL(refPreview); }, [refPreview]);
+  const [userPreview, setUserPreview] = useState<string | null>(null);
+  useEffect(() => () => { if (userPreview) URL.revokeObjectURL(userPreview); }, [userPreview]);
 
   // Combined result
   const [combined, setCombined] = useState<GetScanResultResponse | null>(null);
@@ -133,6 +142,16 @@ export default function Scanner() {
   };
 
   const handleOCRFileSelected = async (file: File | null) => {
+    if (!file) {
+      setOcrImagePreview(null);
+      return;
+    }
+    // Set preview for the selected OCR image
+    try {
+      const url = URL.createObjectURL(file);
+      setOcrImagePreview(url);
+    } catch {}
+
     // Force direct OCR.Space mode to avoid API not found
     const useDirect = true;
     if (!file) return;
@@ -207,6 +226,11 @@ export default function Scanner() {
                       onChange={(e) => setSourceHint(e.target.value)}
                     />
                   </div>
+                  {ocrImagePreview && (
+                    <div className="mt-4">
+                      <img src={ocrImagePreview} alt="Preview" className="max-h-72 rounded-md border mx-auto" />
+                    </div>
+                  )}
                 </div>
               </TabsContent>
 
@@ -237,6 +261,11 @@ export default function Scanner() {
                       onChange={(e) => setSourceHint(e.target.value)}
                     />
                   </div>
+                  {ocrImagePreview && (
+                    <div className="mt-4">
+                      <img src={ocrImagePreview} alt="Preview" className="max-h-72 rounded-md border mx-auto" />
+                    </div>
+                  )}
                 </div>
               </TabsContent>
 
@@ -276,103 +305,120 @@ export default function Scanner() {
                 <p className="text-muted-foreground">No scan yet. Capture or upload a label, or search by barcode.</p>
               </div>
             ) : (
-              <div className="space-y-4">
-                {/* OCR extracted fields */}
-                {ocrResult && (
-                  <div className="space-y-2">
-                    <h4 className="font-medium">Extracted Fields</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                      {(
-                        [
-                          ["Generic Name", ocrResult.extracted?.generic_name],
-                          ["MRP", ocrResult.extracted?.mrp],
-                          ["Net Quantity", ocrResult.extracted?.net_quantity],
-                          ["Unit", ocrResult.extracted?.unit],
-                          ["Manufacturer Name", ocrResult.extracted?.manufacturer_name],
-                          ["Manufacturer Address", ocrResult.extracted?.manufacturer_address],
-                          ["Month/Year", ocrResult.extracted?.month_year],
-                          ["Consumer Care", ocrResult.extracted?.consumer_care],
-                        ] as const
-                      ).map(([label, value]) => (
-                        <div key={label} className="flex items-center gap-2">
-                          <span className="text-muted-foreground w-40 min-w-40">{label}:</span>
-                          <span className="font-medium break-words">{value || "—"}</span>
-                        </div>
-                      ))}
-                    </div>
-                    {ocrResult.summary && (
-                      <div className="flex items-center gap-2">
+              <Accordion type="multiple" className="w-full">
+                {/* OCR Section */}
+                <AccordionItem value="ocr">
+                  <AccordionTrigger>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">OCR Extraction & Rule Summary</span>
+                      {ocrResult?.summary && (
                         <Badge className={ocrResult.summary.compliant ? "bg-success text-success-foreground" : "bg-error text-error-foreground"}>
-                          {ocrResult.summary.compliant ? "Compliant" : "Violations"}
+                          {ocrResult.summary.compliant ? "Compliant" : `Violations: ${ocrResult.summary.violation_count ?? ocrResult.summary.violations?.length ?? 0}`}
                         </Badge>
-                        {!ocrResult.summary.compliant && (
-                          <span className="text-sm text-muted-foreground">{ocrResult.summary.violation_count ?? ocrResult.summary.violations?.length ?? 0} issues</span>
+                      )}
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    {ocrResult ? (
+                      <div className="space-y-4">
+                        {/* Extracted fields in two columns */}
+                        <div>
+                          <h4 className="font-medium mb-2">Extracted Fields</h4>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                            {([
+                              ["Generic Name", ocrResult.extracted?.generic_name],
+                              ["MRP", ocrResult.extracted?.mrp],
+                              ["Net Quantity", ocrResult.extracted?.net_quantity],
+                              ["Unit", ocrResult.extracted?.unit],
+                              ["Manufacturer Name", ocrResult.extracted?.manufacturer_name],
+                              ["Manufacturer Address", ocrResult.extracted?.manufacturer_address],
+                              ["Month/Year", ocrResult.extracted?.month_year],
+                              ["Consumer Care", ocrResult.extracted?.consumer_care],
+                            ] as const).map(([label, value]) => (
+                              <div key={label} className="flex items-center gap-2">
+                                <span className="text-muted-foreground w-40 min-w-40">{label}:</span>
+                                <span className="font-medium break-words">{value || "—"}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Rule checks */}
+                        {ocrResult.rules && ocrResult.rules.length > 0 && (
+                          <div>
+                            <h4 className="font-medium mb-2">Rule Checks</h4>
+                            <div className="space-y-2">
+                              {ocrResult.rules.map((r) => (
+                                <div key={r.rule_key} className="flex items-center justify-between text-sm p-2 border rounded-md">
+                                  <span className="capitalize">{r.rule_key.replace(/_/g, " ")}</span>
+                                  {r.passed ? <CheckCircle className="h-4 w-4 text-success" /> : <XCircle className="h-4 w-4 text-error" />}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
                         )}
                       </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No OCR results yet.</p>
                     )}
-                  </div>
-                )}
+                  </AccordionContent>
+                </AccordionItem>
 
-                {/* Rules */}
-                {ocrResult?.rules && ocrResult.rules.length > 0 && (
-                  <div>
-                    <h4 className="font-medium mb-2">Rule Checks</h4>
-                    <div className="space-y-2">
-                      {ocrResult.rules.map((r) => (
-                        <div key={r.rule_key} className="flex items-center justify-between text-sm p-2 border rounded-md">
-                          <span className="capitalize">{r.rule_key.replace(/_/g, " ")}</span>
-                          {r.passed ? <CheckCircle className="h-4 w-4 text-success" /> : <XCircle className="h-4 w-4 text-error" />}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Enrichment */}
-                {barcodeResult?.product && (
-                  <div className="space-y-2">
-                    <h4 className="font-medium">Product Enrichment</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                      {(
-                        [
+                {/* Enrichment Section */}
+                <AccordionItem value="enrichment">
+                  <AccordionTrigger>
+                    <span className="font-medium">Product Enrichment</span>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    {barcodeResult?.product ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                        {([
                           ["Title", barcodeResult.product.title],
                           ["Brand", barcodeResult.product.brand],
                           ["GTIN", barcodeResult.product.gtin],
                           ["ASIN", barcodeResult.product.asin],
                           ["Price", barcodeResult.product.offers?.price?.toString()],
                           ["Currency", barcodeResult.product.offers?.currency],
-                        ] as const
-                      ).map(([label, value]) => (
-                        <div key={label} className="flex items-center gap-2">
-                          <span className="text-muted-foreground w-40 min-w-40">{label}:</span>
-                          <span className="font-medium break-words">{value || "—"}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                        ] as const).map(([label, value]) => (
+                          <div key={label} className="flex items-center gap-2">
+                            <span className="text-muted-foreground w-40 min-w-40">{label}:</span>
+                            <span className="font-medium break-words">{value || "—"}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No enrichment data.</p>
+                    )}
+                  </AccordionContent>
+                </AccordionItem>
 
-                {/* Combined result */}
-                {combined && (
-                  <div className="space-y-2">
-                    <h4 className="font-medium">Combined Result</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                      <div className="flex items-center gap-2">
-                        <span className="text-muted-foreground w-40 min-w-40">Scan ID:</span>
-                        <span className="font-medium break-words">{combined.scan_id}</span>
+                {/* Combined Section */}
+                <AccordionItem value="combined">
+                  <AccordionTrigger>
+                    <span className="font-medium">Combined Result</span>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    {combined ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground w-40 min-w-40">Scan ID:</span>
+                          <span className="font-medium break-words">{combined.scan_id}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground w-40 min-w-40">Similarity:</span>
+                          <span className="font-medium break-words">{combined.cv?.similarity ?? "—"}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground w-40 min-w-40">Risk Score:</span>
+                          <span className="font-medium break-words">{combined.anomaly?.risk_score ?? "—"}</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-muted-foreground w-40 min-w-40">Similarity:</span>
-                        <span className="font-medium break-words">{combined.cv?.similarity ?? "—"}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-muted-foreground w-40 min-w-40">Risk Score:</span>
-                        <span className="font-medium break-words">{combined.anomaly?.risk_score ?? "—"}</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No combined results yet.</p>
+                    )}
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
             )}
           </CardContent>
         </Card>
@@ -381,18 +427,28 @@ export default function Scanner() {
       {/* CV similarity section */}
       <Card>
         <CardHeader>
-          <CardTitle>CV Similarity (Optional)</CardTitle>
+          <CardTitle>CV Similarity</CardTitle>
           <CardDescription>Compare listing/reference image with your captured image</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label>Reference image</Label>
-              <Input type="file" accept="image/*" onChange={(e) => setRefImage(e.target.files?.[0] || null)} />
+              <Input type="file" accept="image/*" onChange={(e) => { const f = e.target.files?.[0] || null; setRefImage(f); try { setRefPreview(f ? URL.createObjectURL(f) : null); } catch {} }} />
+              {refPreview && (
+                <div className="mt-2">
+                  <img src={refPreview} alt="Reference preview" className="max-h-56 rounded-md border" />
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <Label>User image</Label>
-              <Input type="file" accept="image/*" onChange={(e) => setUserImage(e.target.files?.[0] || null)} />
+              <Input type="file" accept="image/*" onChange={(e) => { const f = e.target.files?.[0] || null; setUserImage(f); try { setUserPreview(f ? URL.createObjectURL(f) : null); } catch {} }} />
+              {userPreview && (
+                <div className="mt-2">
+                  <img src={userPreview} alt="User preview" className="max-h-56 rounded-md border" />
+                </div>
+              )}
             </div>
           </div>
           <Button onClick={handleCVSimilarity} disabled={cvLoading} className="w-full sm:w-auto">
