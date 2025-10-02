@@ -6,11 +6,13 @@ export async function cvSimilarityClient(refFile: File, userFile: File): Promise
   flags: { key: string; present: boolean }[];
   verdict: string;
 }> {
-  const [h1, h2] = await Promise.all([computeAHash(refFile), computeAHash(userFile)]);
-  const dist = hammingDistance(h1, h2);
-  const similarity = 1 - dist / 64; // aHash is 64 bits
+  // Use full 64-bit aHash with bigint Hamming distance to avoid scaling errors.
+  const [h1, h2] = await Promise.all([computeAHashBig(refFile), computeAHashBig(userFile)]);
+  const dist = hammingDistanceHashBigInt(h1, h2); // 0..64
+  const similarity = 1 - dist / 64; // proper normalization
   const flags = [
-    { key: "packaging_layout_diff", present: similarity < 0.7 },
+    // present=true means any difference is observed; absent only when aHash is identical
+    { key: "packaging_layout_diff", present: dist > 0 },
   ];
   const verdict = similarity >= 0.85
     ? "likely_match"

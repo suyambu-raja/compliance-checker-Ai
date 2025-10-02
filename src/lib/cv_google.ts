@@ -53,7 +53,8 @@ export async function googleCVSimilarity(refFile: File, userFile: File): Promise
   const similarity = Number((labelSim * 0.7 + colorSim * 0.3).toFixed(2));
 
   const flags = [
-    { key: "packaging_layout_diff", present: similarity < 0.7 },
+    // present=true means any difference is observed; Vision-based heuristic rarely hits 1.0
+    { key: "packaging_layout_diff", present: similarity < 1.0 },
     { key: "logo_mismatch", present: !hasLogoIndication(refLabels) || !hasLogoIndication(userLabels) },
   ];
 
